@@ -4,6 +4,8 @@
 SEPARATOR=","
 SUCCESS_FILE="success.csv"
 DONE_FILE="done.txt"
+ERROR_FILE="error.txt"
+import threading
 
 def logfound(file,keyword,line):
     f=open(SUCCESS_FILE,'a')
@@ -17,3 +19,8 @@ def logdone(file):
     f.write(file+"\n")
     f.close()
 
+def logerror(file,error):
+    with threading.RLock():
+        f = open(ERROR_FILE, 'a')
+        f.write(file + ' :' + str(error) + "\n")
+        f.close()

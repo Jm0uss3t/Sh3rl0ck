@@ -1,14 +1,25 @@
 # coding: utf-8
-
+import time
 import argparse
 import os
 import re
 import Logguer
 import Config
 import Parsers
+import threading
 from Logguer import DONE_FILE
+import json
+import timeit
+import queue
+
 
 FILELIST = "list.txt"
+FILES={}
+SEARCHEND=False
+FILEQUEUE=queue.Queue(maxsize=0)
+COUNTER = 0
+ITERATION = 0
+
 
 def get_done_files():
     list=[]
@@ -21,13 +32,11 @@ def get_done_files():
     return list
 
 def resume_scan(previous_list):
-
     if previous_list == FILELIST:
         print("Error previous file should not be named " + FILELIST)
         exit(1)
     else:
         try:
-
             file_list=open(previous_list)
             f = open(FILELIST, 'wb')
             done = get_done_files()
@@ -41,67 +50,104 @@ def resume_scan(previous_list):
             print("Error when parsing the previous file")
             exit(1)
 
-def searchfiles(path,extensions):
-    pattern='\.('
-    print('Searching files')
-    for ext in extensions:
-        pattern+=ext.replace("*","\\w*")  +"|"
-    pattern=pattern[:-1]
-    pattern+=')$'
-    fileliste = [os.path.join(root, name) for root, dirs, files in os.walk(path) for name in files if re.search(pattern,name)]
-    f=open(FILELIST,'wb')
-    done=get_done_files()
-    for file in fileliste:
-        if file not in done:
-            f.write(file.encode('utf8')+'\n'.encode('utf8'))
+def searchfiles(path,pattern):
+    global FILES
+    global FILEQUEUE
+    global FILELIST
+    for file in [os.path.join(root, name) for root, dirs, files in os.walk(path) for name in files if re.search(pattern,name)]:
+        if file not in FILES:
+            FILES[file] = 'todo'
+            FILEQUEUE.put(file)
+    print("Search complete " +path)
+
+def analyzefile(*keywords):
+    global FILES
+    global FILEQUEUE
+    global COUNTER
+    global ITERATION
+
+    while (True):
+        if ITERATION > 30:
+            with threading.RLock():
+                f=open(FILELIST,'w')
+                f.write(json.dumps(FILES))
+                f.close()
+                ITERATION=0
+        with threading.RLock():
+            counter = COUNTER
+        if ((counter > 0) or (not FILEQUEUE.empty())):
+            if (not FILEQUEUE.empty()):
+                file=FILEQUEUE.get()
+                filename = file.strip()
+                file_parser = False
+                ext = filename.split('.')[-1]
+                parser = Config.PARSER
+                for data in parser:
+                    # look for the appropriated function to launch
+                    if re.search(data[0].replace("*", "\\w*"), ext):
+                        class_ = getattr(Parsers, data[1])
+                        finder = class_(filename, keywords)
+                        if finder.find == True:
+                            Logguer.logfound(filename, finder.keyword, finder.data)
+                        file_parser = True
+                        break
+                if file_parser == False:
+                    print('Recherche par defaut ')
+                    # A mettre dans recherche effectuée
+                FILES[file] = 'done'
         else:
-            print("already done")
-    f.close()
-    print("Search complete")
+            break
+        with threading.RLock():
+            ITERATION+=1
+    print('ANALYSE DONE')
 
-def analysefile(keywords):
-    print('File analysis begin')
-    f=open(FILELIST,'r',encoding='utf8')
-    for file in f.readlines():
-        filename=file.strip()
-        file_parser = False
-        ext=filename.split('.')[-1]
-        parser = Config.PARSER
-        for data in parser:
-        # look for the appropriated function to launch
-            if re.search(data[0].replace("*","\\w*"),ext):
-                class_ = getattr(Parsers, data[1])
-                finder = class_(filename,keywords)
-                if finder.find == True:
-                    Logguer.logfound(filename,finder.keyword,finder.data)
-                file_parser = True
-                break
-        if file_parser == False:
-            print('Recherche par defaut ')
-        #A mettre dans recherche effectuée
-        Logguer.logdone(filename)
-    f.close()
+def get_top_directory(path,pattern):
+    global  FILES
+    global FILEQUEUE
+    root_dir =[]
+    it = os.scandir(path)
+    for entry in it:
+        if entry.is_dir():
+            root_dir.append(entry.path)
+        elif re.search(pattern,entry.path):
+            if entry.path not in FILES:
+                FILES[entry.path] = 'todo'
+                FILEQUEUE.put(entry.path)
+    return  root_dir
 
+def searcher(sema,path,extensions):
+    global COUNTER
+    with sema:
+        with threading.Lock():
+            COUNTER +=1
+        searchfiles(path, extensions)
+        with threading.Lock():
+            COUNTER+=-1
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-path", help="Share or path to search files", required=False)
     parser.add_argument("-ext", help="Extensions of files to search comma separated", required=False, default="config,xls*,doc*,xml,bat,cmd,pdf,vba,vbe")
-    parser.add_argument("-keywords", help="Keyword comma separated", required=False, nargs='+', default=["login","password","pwd"])
+    parser.add_argument("-keywords", help="Keyword comma separated", required=False, default='login,password,pwd')
     parser.add_argument("-login", help="login to access the share", required=False)
     parser.add_argument("-password", help="password to access the share", required=False)
     parser.add_argument("-resume", help="previously identified files", required=False)
     parser.add_argument("-scanned", help="increase output verbosity", default="./done.txt")
     args = parser.parse_args()
 
-    print (args.ext)
-    ''' We list files '''
-    if args.resume != None:
-        print('Resume scan')
-        resume_scan(args.resume)
-    else:
-        searchfiles(args.path,args.ext.split(','))
-    '''We search in file content'''
-    analysefile(args.keywords)
+    extensions = args.ext.split(',')
+    pattern = '\.('
+    for ext in extensions:
+        pattern += ext.replace("*", "\\w*") + "|"
+    pattern = pattern[:-1]
+    pattern += ')$'
+
+    sema=threading.Semaphore(4)
+    for dir in get_top_directory(args.path,pattern):
+        t = threading.Thread(target=searcher, name='searcher', args=(sema,dir,pattern))
+        t.start()
+
+    analyzer_locker = threading.RLock()
+    analyzer1 = threading.Thread(target=analyzefile, name='analyser', args=(args.keywords.split(',')))
+    analyzer1.start()

@@ -1,7 +1,7 @@
 # coding: utf-8
-import pyexcel_xls
-import re
+
 from Grepers import *
+from Logguer import *
 
 
 
@@ -36,7 +36,8 @@ class Excel(Search):
                                     self.data = is_in_cell[2]
                                     return
             except Exception as e:
-                print(e)
+                logerror(file, e)
+
 
     def search_excel2003(self,file,keywords):
         import xlrd
@@ -53,21 +54,17 @@ class Excel(Search):
                                 self.data = is_in_cell[2]
                                 return
         except Exception as e:
-            print(e)
+            logerror(file,e)
+
 
 class Word(Search):
-
     def __init__(self, file, keywords):
         super().__init__()
-        print("on parse un word")
-        print(file)
         ext = re.split("\.", file)[-1]
-        print(ext)
         if re.search("do.$", ext):
             self.search_word2003(file, keywords)
         else:
             self.search_word2010(file, keywords)
-
     def search_word2010(self, file, keywords):
         import docx2txt
         try:
@@ -80,19 +77,20 @@ class Word(Search):
                     self.data = is_in_data[2]
                     return
         except Exception as e:
-            print(e)
+            logerror(file,e)
 
     def search_word2003(self, file, keywords):
-
-
         import olefile
-        print('workd2003')
+
         ole = olefile.OleFileIO(file)
-        print(ole.listdir())
+        #print(ole.listdir())
         pics = ole.openstream('WordDocument')
         data = pics.read()
-        print(type(data))
-        print(data.decode('iso8859').rstrip('\x00'))
-        for a in data.decode('iso8859').rstip('\x00'):
-            if ((hex(ord(a))) != '0x0'):
-                print(a)
+        content=data.decode('iso8859').rstrip('\x00')
+        for data in content.split('\n'):
+            is_in_data=grep_string(data,keywords)
+            if is_in_data[0] == True:
+                self.find=True
+                self.keyword=is_in_data[1]
+                ### NEED TO EXTRACT THE DATA ###
+                self.data = 'Please open the doc'
