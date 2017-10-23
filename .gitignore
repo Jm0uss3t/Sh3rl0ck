@@ -4,3 +4,4 @@
 *.txt
 /.idea
 prev
+/venv
