@@ -11,6 +11,23 @@ class Search():
         self.keyword=None
         self.data=None
 
+class DefaultParser(Search):
+    def __init__(self,file,keywords):
+        super().__init__()
+        try:
+            with open(file) as f:
+                for line in f.readlines():
+                    if self.find == False:
+                        is_found = grep_string(line, keywords)
+                        if is_found[0] == True:
+                            self.find = True
+                            self.keyword = is_found[1]
+                            self.data = is_found[2]
+                            return
+        except Exception as e:
+            logerror(file, e)
+
+
 class Excel(Search):
 
     def __init__(self,file,keywords):

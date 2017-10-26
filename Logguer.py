@@ -11,7 +11,7 @@ def logfound(file,keyword,line):
     f=open(SUCCESS_FILE,'a')
     f.write(file+SEPARATOR+keyword+SEPARATOR+line+"\n")
     f.close()
-    print(file+SEPARATOR+keyword+SEPARATOR+line)
+    #print(file+SEPARATOR+keyword+SEPARATOR+line)
 
 
 def logdone(file):

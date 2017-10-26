@@ -75,6 +75,7 @@ def analyzefile(*keywords):
                 ITERATION=0
         with threading.RLock():
             counter = COUNTER
+
         if ((counter > 0) or (not FILEQUEUE.empty())):
             if (not FILEQUEUE.empty()):
                 file=FILEQUEUE.get()
@@ -92,8 +93,9 @@ def analyzefile(*keywords):
                         file_parser = True
                         break
                 if file_parser == False:
-                    print('Recherche par defaut ')
-                    # A mettre dans recherche effectuée
+                    finder = Parsers.DefaultParser(filename, keywords)
+                    if finder.find == True:
+                        Logguer.logfound(filename, finder.keyword, finder.data)
                 FILES[file] = 'done'
         else:
             break
@@ -127,11 +129,9 @@ def searcher(sema,path,extensions):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-path", help="Share or path to search files", required=False)
+    parser.add_argument("-path", help="Share or path to search files", required=True)
     parser.add_argument("-ext", help="Extensions of files to search comma separated", required=False, default="config,xls*,doc*,xml,bat,cmd,pdf,vba,vbe")
     parser.add_argument("-keywords", help="Keyword comma separated", required=False, default='login,password,pwd')
-    parser.add_argument("-login", help="login to access the share", required=False)
-    parser.add_argument("-password", help="password to access the share", required=False)
     parser.add_argument("-resume", help="previously identified files", required=False)
     parser.add_argument("-scanned", help="increase output verbosity", default="./done.txt")
     args = parser.parse_args()
