@@ -60,12 +60,12 @@ def searchfiles(path,pattern):
             FILEQUEUE.put(file)
     print("Search complete " +path)
 
-def analyzefile(*keywords):
+def analyzefile(keywords):
     global FILES
     global FILEQUEUE
     global COUNTER
     global ITERATION
-
+    print('analyse')
     while (True):
         if ITERATION > 30:
             with threading.RLock():
@@ -97,11 +97,17 @@ def analyzefile(*keywords):
                     if finder.find == True:
                         Logguer.logfound(filename, finder.keyword, finder.data)
                 FILES[file] = 'done'
+                FILEQUEUE.task_done()
         else:
             break
         with threading.RLock():
             ITERATION+=1
+
     print('ANALYSE DONE')
+    with threading.RLock():
+        f = open(FILELIST, 'w')
+        f.write(json.dumps(FILES))
+        f.close()
 
 def get_top_directory(path,pattern):
     global  FILES
@@ -126,6 +132,10 @@ def searcher(sema,path,extensions):
         with threading.Lock():
             COUNTER+=-1
 
+def analyser(keywords):
+    with threading.Semaphore(2):
+        analyzefile(keywords)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -148,6 +158,6 @@ if __name__ == '__main__':
         t = threading.Thread(target=searcher, name='searcher', args=(sema,dir,pattern))
         t.start()
 
-    analyzer_locker = threading.RLock()
-    analyzer1 = threading.Thread(target=analyzefile, name='analyser', args=(args.keywords.split(',')))
+
+    analyzer1 = threading.Thread(target=analyzefile(args.keywords.split(',')), name='analyser')
     analyzer1.start()
