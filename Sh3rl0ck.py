@@ -11,6 +11,7 @@ from Logguer import DONE_FILE
 import json
 import timeit
 import queue
+from pathlib import Path
 
 
 FILELIST = "list.txt"
@@ -145,6 +146,15 @@ if __name__ == '__main__':
     parser.add_argument("-resume", help="previously identified files", required=False)
     parser.add_argument("-scanned", help="increase output verbosity", default="./done.txt")
     args = parser.parse_args()
+
+    if Path(FILELIST).is_file():
+        Join = input('A previous session file has been found.\nDo you want load analyse status from it [Y/N]?')
+        if Join.lower() == 'yes' or Join.lower() == 'y':
+            print("load")
+            FILE= json.loads(open(FILELIST).read())
+            toanalyse = [key for key,value in FILE.items() if value == 'todo' ]
+            for file in toanalyse:
+                FILEQUEUE.put(file)
 
     extensions = args.ext.split(',')
     pattern = '\.('
