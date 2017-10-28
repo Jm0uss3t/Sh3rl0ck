@@ -19,7 +19,7 @@ SEARCHEND=False
 FILEQUEUE=queue.Queue(maxsize=0)
 COUNTER = 0
 ITERATION = 0
-
+SEARCH_SEMAPHORE=None
 
 def get_done_files():
     list=[]
@@ -74,8 +74,7 @@ def analyzefile(keywords):
                 f.close()
                 ITERATION=0
         with threading.RLock():
-            counter = COUNTER
-
+            counter = len([t for t in threading.enumerate() if t.name == 'searcher'])
         if ((counter > 0) or (not FILEQUEUE.empty())):
             if (not FILEQUEUE.empty()):
                 file=FILEQUEUE.get()
@@ -123,9 +122,10 @@ def get_top_directory(path,pattern):
                 FILEQUEUE.put(entry.path)
     return  root_dir
 
-def searcher(sema,path,extensions):
+def searcher(path,extensions):
     global COUNTER
-    with sema:
+    global SEARCH_SEMAPHORE
+    with SEARCH_SEMAPHORE:
         with threading.Lock():
             COUNTER +=1
         searchfiles(path, extensions)
@@ -153,11 +153,13 @@ if __name__ == '__main__':
     pattern = pattern[:-1]
     pattern += ')$'
 
-    sema=threading.Semaphore(4)
+    SEARCH_SEMAPHORE = threading.Semaphore(4)
     for dir in get_top_directory(args.path,pattern):
-        t = threading.Thread(target=searcher, name='searcher', args=(sema,dir,pattern))
+        t = threading.Thread(target=searcher, name='searcher', args=(dir,pattern))
         t.start()
 
 
-    analyzer1 = threading.Thread(target=analyzefile(args.keywords.split(',')), name='analyser')
+    analyzer1 = threading.Thread(target=analyzefile, name='analyser',args=((args.keywords.split(','),)))
     analyzer1.start()
+    analyzer2 = threading.Thread(target=analyzefile, name='analyser',args=((args.keywords.split(','),)))
+    analyzer2.start()
