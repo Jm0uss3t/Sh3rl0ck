@@ -156,20 +156,31 @@ if __name__ == '__main__':
             for file in toanalyse:
                 FILEQUEUE.put(file)
 
+    # Generate regex with files extensions for research
     extensions = args.ext.split(',')
-    pattern = '\.('
+    pattern_extensions = '\.('
     for ext in extensions:
-        pattern += ext.replace("*", "\\w*") + "|"
-    pattern = pattern[:-1]
-    pattern += ')$'
+        pattern_extensions += ext.replace("*", "\\w*") + "|"
+    pattern_extensions = pattern_extensions[:-1]
+    pattern_extensions += ')$'
 
+    # Launch one thread by directory found in the root directory
+    # 4 thread will run simultanously
     SEARCH_SEMAPHORE = threading.Semaphore(4)
-    for dir in get_top_directory(args.path,pattern):
-        t = threading.Thread(target=searcher, name='searcher', args=(dir,pattern))
+    for dir in get_top_directory(args.path,pattern_extensions):
+        t = threading.Thread(target=searcher, name='searcher', args=(dir,pattern_extensions))
         t.start()
 
+    # Generate and compile regex with keywords to search in files
+    pattern_keywords = '('
+    for keyword in args.keywords.split(','):
+        if keyword not in [' ']:
+            pattern_keywords+=keyword+'|'
+    pattern_keywords=pattern_keywords[:-1]
+    pattern_keywords+=')'
+    regex_keyword=re.compile(pattern_keywords,re.MULTILINE|re.IGNORECASE)
 
-    analyzer1 = threading.Thread(target=analyzefile, name='analyser',args=((args.keywords.split(','),)))
+    analyzer1 = threading.Thread(target=analyzefile, name='analyser',args=((regex_keyword,)))
     analyzer1.start()
-    analyzer2 = threading.Thread(target=analyzefile, name='analyser',args=((args.keywords.split(','),)))
+    analyzer2 = threading.Thread(target=analyzefile, name='analyser',args=((regex_keyword,)))
     analyzer2.start()
