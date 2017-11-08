@@ -1,5 +1,5 @@
 # coding: utf-8
-import time
+import datetime
 import argparse
 import os
 import re
@@ -7,17 +7,19 @@ import Logguer
 import Config
 import Parsers
 import threading
-from Logguer import DONE_FILE
+from Logguer import DONE_FILE,logerror
 import json
-import timeit
 import queue
 from pathlib import Path
-
+import shutil
 
 FILELIST = "list.txt"
 FILES={}
 SEARCHEND=False
 FILEQUEUE=queue.Queue(maxsize=0)
+DOWNLOAD_QUEUE=queue.Queue(maxsize=0)
+DOWNLOAD_FILES = False
+DOWNLOAD_DIR=None
 COUNTER = 0
 ITERATION = 0
 SEARCH_SEMAPHORE=None
@@ -66,6 +68,7 @@ def analyzefile(keywords):
     global FILEQUEUE
     global COUNTER
     global ITERATION
+    global DOWNLOAD_FILES
     print('analyse')
     while (True):
         if ITERATION > 30:
@@ -74,13 +77,16 @@ def analyzefile(keywords):
                 f.write(json.dumps(FILES))
                 f.close()
                 ITERATION=0
+        # Get the number of threads with name "searcher" to know if the file search is done
         with threading.RLock():
             counter = len([t for t in threading.enumerate() if t.name == 'searcher'])
+        # If the research is not finished or there are file to analyse in the queue
         if ((counter > 0) or (not FILEQUEUE.empty())):
             if (not FILEQUEUE.empty()):
-                file=FILEQUEUE.get()
-                filename = file.strip()
+                finder = None
                 file_parser = False
+                file=FILEQUEUE.get().strip()
+                filename = file.strip()
                 ext = filename.split('.')[-1]
                 parser = Config.PARSER
                 for data in parser:
@@ -88,14 +94,23 @@ def analyzefile(keywords):
                     if re.search(data[0].replace("*", "\\w*"), ext):
                         class_ = getattr(Parsers, data[1])
                         finder = class_(filename, keywords)
+                        '''
                         if finder.find == True:
                             Logguer.logfound(filename, finder.keyword, finder.data)
+                        '''
                         file_parser = True
                         break
                 if file_parser == False:
                     finder = Parsers.DefaultParser(filename, keywords)
-                    if finder.find == True:
-                        Logguer.logfound(filename, finder.keyword, finder.data)
+                if finder.find == True:
+                    Logguer.logfound(filename, finder.keyword, finder.data)
+                    if DOWNLOAD_FILES == 'Y':
+                        try:
+                            shutil.copy(filename,DOWNLOAD_DIR+'/'+filename.replace('/','_'))
+
+                        except Exception as e:
+                            logerror(filename, e)
+
                 FILES[file] = 'done'
                 FILEQUEUE.task_done()
         else:
@@ -144,8 +159,16 @@ if __name__ == '__main__':
     parser.add_argument("-ext", help="Extensions of files to search comma separated", required=False, default="config,xls*,doc*,xml,bat,cmd,pdf,vba,vbe")
     parser.add_argument("-keywords", help="Keyword comma separated", required=False, default='login,password,pwd')
     parser.add_argument("-resume", help="previously identified files", required=False)
-    parser.add_argument("-scanned", help="increase output verbosity", default="./done.txt")
+    parser.add_argument("-download", help="Download the files matching the pattern (Y/N)", default='N')
     args = parser.parse_args()
+
+    DOWNLOAD_FILES = args.download.upper()
+    print(args.download)
+    if DOWNLOAD_FILES == "Y":
+        # Creation of dowloadd_directory
+        DOWNLOAD_DIR=os.getcwd()+'/'+datetime.datetime.now().strftime('%d-%m-%Y-%H-%M')
+        if not os.path.exists(DOWNLOAD_DIR):
+            os.makedirs(DOWNLOAD_DIR)
 
     if Path(FILELIST).is_file():
         Join = input('A previous session file has been found.\nDo you want load analyse status from it [Y/N]?')
@@ -180,7 +203,11 @@ if __name__ == '__main__':
     pattern_keywords+=')'
     regex_keyword=re.compile(pattern_keywords,re.MULTILINE|re.IGNORECASE)
 
+
     analyzer1 = threading.Thread(target=analyzefile, name='analyser',args=((regex_keyword,)))
     analyzer1.start()
     analyzer2 = threading.Thread(target=analyzefile, name='analyser',args=((regex_keyword,)))
     analyzer2.start()
+
+
+
