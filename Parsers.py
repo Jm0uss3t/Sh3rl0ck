@@ -27,11 +27,10 @@ class DefaultParser(Search):
                             return
             '''
             with open(file, 'rb') as f:
-                encodage = chardet.detect(f.read())
-
-                f.seek(0)
+                content=f.read()
+                encodage = chardet.detect(content)
                 if encodage['encoding'] is not None:
-                    for line in f.read().decode(encoding=encodage['encoding']).splitlines():
+                    for line in content.decode(encoding=encodage['encoding']).splitlines():
                         if self.find == False:
                             is_found = grep_string(line, keywords)
                             if is_found[0] == True:
