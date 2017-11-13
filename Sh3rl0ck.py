@@ -94,10 +94,6 @@ def analyzefile(keywords):
                     if re.search(data[0].replace("*", "\\w*"), ext):
                         class_ = getattr(Parsers, data[1])
                         finder = class_(filename, keywords)
-                        '''
-                        if finder.find == True:
-                            Logguer.logfound(filename, finder.keyword, finder.data)
-                        '''
                         file_parser = True
                         break
                 if file_parser == False:
@@ -107,7 +103,6 @@ def analyzefile(keywords):
                     if DOWNLOAD_FILES == 'Y':
                         try:
                             shutil.copy(filename,DOWNLOAD_DIR+'/'+filename.replace('/','_'))
-
                         except Exception as e:
                             logerror(filename, e)
 
