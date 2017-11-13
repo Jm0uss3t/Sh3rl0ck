@@ -2,7 +2,7 @@
 
 from Grepers import *
 from Logguer import *
-
+import chardet
 
 
 class Search():
@@ -15,6 +15,7 @@ class DefaultParser(Search):
     def __init__(self,file,keywords):
         super().__init__()
         try:
+            '''
             with open(file) as f:
                 for line in f.readlines():
                     if self.find == False:
@@ -24,6 +25,20 @@ class DefaultParser(Search):
                             self.keyword = is_found[1]
                             self.data = is_found[2]
                             return
+            '''
+            with open(file, 'rb') as f:
+                encodage = chardet.detect(f.read())
+
+                f.seek(0)
+                if encodage['encoding'] is not None:
+                    for line in f.read().decode(encoding=encodage['encoding']).splitlines():
+                        if self.find == False:
+                            is_found = grep_string(line, keywords)
+                            if is_found[0] == True:
+                                self.find = True
+                                self.keyword = is_found[1]
+                                self.data = is_found[2]
+                                return
         except Exception as e:
             logerror(file, e)
 
