@@ -12,6 +12,7 @@ import json
 import queue
 from pathlib import Path
 import shutil
+import progressbar
 
 FILELIST = "list.txt"
 FILES={}
@@ -100,13 +101,14 @@ def analyzefile(keywords):
                     finder = Parsers.DefaultParser(filename, keywords)
                 if finder.find == True:
                     Logguer.logfound(filename, finder.keyword, finder.data)
+                    FILES[file] = 'match'
                     if DOWNLOAD_FILES == 'Y':
                         try:
                             shutil.copy(filename,DOWNLOAD_DIR+'/'+filename.replace('/','_'))
                         except Exception as e:
                             logerror(filename, e)
-
-                FILES[file] = 'done'
+                else:
+                    FILES[file] = 'nomatch'
                 FILEQUEUE.task_done()
         else:
             break
@@ -170,7 +172,7 @@ if __name__ == '__main__':
         if Join.lower() == 'yes' or Join.lower() == 'y':
             print("load")
             FILE= json.loads(open(FILELIST).read())
-            toanalyse = [key for key,value in FILE.items() if value == 'todo' ]
+            toanalyse = [key for key,value in FILE.items() if (value == 'todo' or value == 'nomatch')]
             for file in toanalyse:
                 FILEQUEUE.put(file)
 
@@ -203,6 +205,3 @@ if __name__ == '__main__':
     analyzer1.start()
     analyzer2 = threading.Thread(target=analyzefile, name='analyser',args=((regex_keyword,)))
     analyzer2.start()
-
-
-

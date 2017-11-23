@@ -15,17 +15,6 @@ class DefaultParser(Search):
     def __init__(self,file,keywords):
         super().__init__()
         try:
-            '''
-            with open(file) as f:
-                for line in f.readlines():
-                    if self.find == False:
-                        is_found = grep_string(line, keywords)
-                        if is_found[0] == True:
-                            self.find = True
-                            self.keyword = is_found[1]
-                            self.data = is_found[2]
-                            return
-            '''
             with open(file, 'rb') as f:
                 content=f.read()
                 encodage = chardet.detect(content)
@@ -112,16 +101,19 @@ class Word(Search):
 
     def search_word2003(self, file, keywords):
         import olefile
-
-        ole = olefile.OleFileIO(file)
-        #print(ole.listdir())
-        pics = ole.openstream('WordDocument')
-        data = pics.read()
-        content=data.decode('iso8859').rstrip('\x00')
-        for data in content.split('\n'):
-            is_in_data=grep_string(data,keywords)
-            if is_in_data[0] == True:
-                self.find=True
-                self.keyword=is_in_data[1]
-                ### NEED TO EXTRACT THE DATA ###
-                self.data = 'Please open the doc'
+        try:
+            ole = olefile.OleFileIO(file)
+            #print(ole.listdir())
+            pics = ole.openstream('WordDocument')
+            print(type(pics))
+            data = pics.read()
+            content=data.decode('iso8859').rstrip('\x00')
+            for data in content.split('\n'):
+                is_in_data=grep_string(data,keywords)
+                if is_in_data[0] == True:
+                    self.find=True
+                    self.keyword=is_in_data[1]
+                    ### NEED TO EXTRACT THE DATA ###
+                    self.data = is_in_data[2]
+        except Exception as e:
+            logerror(file, e)
