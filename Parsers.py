@@ -3,6 +3,7 @@
 from Grepers import *
 from Logguer import *
 import chardet
+import olefile
 
 
 class Search():
@@ -117,3 +118,26 @@ class Word(Search):
                     self.data = is_in_data[2]
         except Exception as e:
             logerror(file, e)
+
+class Outlook(Search):
+    def __init__(self, file, keywords):
+        super().__init__()
+        try:
+            file = olefile.OleFileIO(file)
+            if file.exists('__substg1.0_1000001E'):
+                stream_dir = '__substg1.0_1000001E'
+            elif file.exists('__substg1.0_1000001F'):
+                stream_dir = '__substg1.0_1000001F'
+            stream = file.openstream(stream_dir)
+            data = stream.read()
+            encoding = chardet.detect(data)
+            content = data.decode(encoding['encoding'])
+            for line in content.splitlines():
+                is_in_data = grep_string(line.strip(), keywords)
+                if is_in_data[0] == True:
+                    self.find = True
+                    self.keyword = is_in_data[1]
+                    self.data = is_in_data[2]
+                    return
+        except Exception as e:
+          logerror(file, e)
