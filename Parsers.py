@@ -16,18 +16,20 @@ class DefaultParser(Search):
     def __init__(self,file,keywords):
         super().__init__()
         try:
-            with open(file, 'rb') as f:
-                content=f.read()
-                encodage = chardet.detect(content)
-                if encodage['encoding'] is not None:
-                    for line in content.decode(encoding=encodage['encoding']).splitlines():
-                        if self.find == False:
-                            is_found = grep_string(line, keywords)
-                            if is_found[0] == True:
-                                self.find = True
-                                self.keyword = is_found[1]
-                                self.data = is_found[2]
-                                return
+            f=open(file, 'rb')
+            for line in f:
+                encodage = chardet.detect(line)
+                print(encodage['encoding'])
+                print(line.decode(encodage['encoding']))
+                if self.find == False:
+                    is_found = grep_string(line.decode(encodage['encoding']), keywords)
+                    if is_found[0] == True:
+                        self.find = True
+                        self.keyword = is_found[1]
+                        self.data = is_found[2]
+                        f.close()
+                        return
+            f.close()
         except Exception as e:
             logerror(file, e)
 
@@ -55,7 +57,11 @@ class Excel(Search):
                                     self.find = True
                                     self.keyword= is_in_cell[1]
                                     self.data = is_in_cell[2]
+                                    wb._archive.close()
+                                    del wb
                                     return
+                wb._archive.close()
+                del wb
             except Exception as e:
                 logerror(file, e)
 
@@ -63,7 +69,7 @@ class Excel(Search):
     def search_excel2003(self,file,keywords):
         import xlrd
         try:
-            wb = xlrd.open_workbook(file)
+            wb = xlrd.open_workbook(file, on_demand = True)
             for ws in wb.sheet_names():
                 if self.find == False:
                     for row in range(wb.sheet_by_name(ws).nrows):
@@ -73,7 +79,11 @@ class Excel(Search):
                                 self.find = True
                                 self.keyword = is_in_cell[1]
                                 self.data = is_in_cell[2]
+                                wb.release_resources()
+                                del wb
                                 return
+            wb.release_resources()
+            del wb
         except Exception as e:
             logerror(file,e)
 
@@ -96,7 +106,9 @@ class Word(Search):
                     self.find = True
                     self.keyword = is_in_data[1]
                     self.data = is_in_data[2]
+                    del text
                     return
+            del text
         except Exception as e:
             logerror(file,e)
 
@@ -106,16 +118,21 @@ class Word(Search):
             ole = olefile.OleFileIO(file)
             #print(ole.listdir())
             pics = ole.openstream('WordDocument')
-            print(type(pics))
             data = pics.read()
             content=data.decode('iso8859').rstrip('\x00')
             for data in content.split('\n'):
                 is_in_data=grep_string(data,keywords)
+                print (data)
                 if is_in_data[0] == True:
                     self.find=True
                     self.keyword=is_in_data[1]
                     ### NEED TO EXTRACT THE DATA ###
                     self.data = is_in_data[2]
+                    ole.close()
+                    del ole
+                    return
+            ole.close()
+            del ole
         except Exception as e:
             logerror(file, e)
 
@@ -138,6 +155,11 @@ class Outlook(Search):
                     self.find = True
                     self.keyword = is_in_data[1]
                     self.data = is_in_data[2]
+                    file.close()
+                    del file
                     return
+            file.close()
+            del file
+            return
         except Exception as e:
           logerror(file, e)
