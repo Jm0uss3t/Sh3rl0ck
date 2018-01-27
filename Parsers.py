@@ -19,8 +19,6 @@ class DefaultParser(Search):
             f=open(file, 'rb')
             for line in f:
                 encodage = chardet.detect(line)
-                print(encodage['encoding'])
-                print(line.decode(encodage['encoding']))
                 if self.find == False:
                     is_found = grep_string(line.decode(encodage['encoding']), keywords)
                     if is_found[0] == True:
@@ -116,13 +114,11 @@ class Word(Search):
         import olefile
         try:
             ole = olefile.OleFileIO(file)
-            #print(ole.listdir())
             pics = ole.openstream('WordDocument')
             data = pics.read()
             content=data.decode('iso8859').rstrip('\x00')
             for data in content.split('\n'):
                 is_in_data=grep_string(data,keywords)
-                print (data)
                 if is_in_data[0] == True:
                     self.find=True
                     self.keyword=is_in_data[1]
